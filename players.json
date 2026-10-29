@@ -1,0 +1,16 @@
+[
+  {
+    "name": "손흥민",
+    "espn_id": "149945",
+    "team_id": "367",
+    "league": "eng.1",
+    "users": ["윤수"]
+  },
+  {
+    "name": "Tom Cairney",
+    "espn_id": "140033",
+    "team_id": "370",
+    "league": "eng.1",
+    "users": ["윤수"]
+  }
+]
