@@ -1,16 +1,8 @@
 [
-  {
-    "name": "손흥민",
-    "espn_id": "149945",
-    "team_id": "367",
-    "league": "eng.1",
-    "users": ["윤수"]
-  },
-  {
-    "name": "Tom Cairney",
-    "espn_id": "140033",
-    "team_id": "370",
-    "league": "eng.1",
-    "users": ["윤수"]
-  }
+  {"name": "Antonio Raimondo", "espn_id": "319265", "team_id": "4057", "league": "ita.1", "users": ["윤수"]},
+  {"name": "Romano Schmid", "espn_id": "238296", "team_id": "4057", "league": "ita.1", "users": ["윤수"]},
+  {"name": "Tomas Bobcek", "espn_id": "306390", "team_id": "4057", "league": "ita.1", "users": ["윤수"]},
+  {"name": "Nikola Stulic", "espn_id": "304512", "team_id": "113", "league": "ita.1", "users": ["윤수"]},
+  {"name": "Konan N'Dri", "espn_id": "286582", "team_id": "113", "league": "ita.1", "users": ["윤수"]},
+  {"name": "Divine Onyemachi", "espn_id": "3123405", "team_id": "113", "league": "ita.1", "users": ["윤수"]}
 ]

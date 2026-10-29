@@ -6,8 +6,8 @@ import espn
 import alerts
 
 CHECK_INTERVAL = 60      # 반복 간격 (초)
-LINEUP_MINUTES = 40      # 킥오프 몇 분 전부터 확인할지
-MAX_RUN_MINUTES = 180    # 한 번 실행에서 최대 몇 분까지 돌지
+LINEUP_MINUTES = 70      # 킥오프 몇 분 전부터 확인할지
+MAX_RUN_MINUTES = 240    # 한 번 실행에서 최대 몇 분까지 돌지
 
 
 # players.json 읽기
@@ -128,7 +128,7 @@ def run_once(players, sent, date, use_file):
 
 # ===== 실행 시작 =====
 if __name__ == "__main__":
-    TEST_MODE = True
+    TEST_MODE = False
 
     players = load_players()
     sent = load_sent()
