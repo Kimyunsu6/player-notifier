@@ -1,10 +1,19 @@
-import json
-import espn
 from discord_notify import send_embed
 
 
+# 이미 보낸 알림이면 True, 처음이면 기록하고 False
+def already_sent(sent, key):
+    if key in sent:
+        return True
+    sent.append(key)
+    return False
+
+
 # ===== 1. 선발 / 벤치 알림 =====
-def send_lineup(player, info):
+def send_lineup(key_base, player, info, sent):
+    if already_sent(sent, key_base + "_lineup"):
+        return
+
     if player["starter"] == True:
         title = "STARTING XI"
     else:
@@ -21,15 +30,14 @@ def send_lineup(player, info):
     send_embed(player, info["league_name"], title, description, fields)
 
 
-# ===== 2. 경기 중 이벤트 알림 (교체 투입, 골, 도움, 퇴장) =====
-def send_events(player_id, player, info, events):
+# ===== 2. 경기 중 이벤트 알림 =====
+def send_events(key_base, player_id, player, info, events, sent):
     was_bench = (player["starter"] == False)
     my_score = 0
     opp_score = 0
     name = "**" + player["name"] + "**"
 
     for e in events:
-        # 스코어는 모든 골에서 세기 (내 선수와 상관없어도)
         if e["scoring"]:
             if e["team_id"] == player["team_id"]:
                 my_score = my_score + 1
@@ -43,27 +51,34 @@ def send_events(player_id, player, info, events):
 
         # 교체 투입
         if e["type"] == "substitution" and was_bench:
-            if ids[0] == player_id:
-                other = e["names"][1]
-            else:
-                other = e["names"][0]
-            send_embed(player, info["league_name"], "SUB ON  " + e["minute_text"], name + "\n" + other + " 대신 투입", [])
             was_bench = False
+            if not already_sent(sent, key_base + "_sub_" + e["minute_text"]):
+                if ids[0] == player_id:
+                    other = e["names"][1]
+                else:
+                    other = e["names"][0]
+                send_embed(player, info["league_name"], "SUB ON  " + e["minute_text"], name + "\n" + other + " 대신 투입", [])
 
         # 골 / 도움
         if e["scoring"]:
             if ids[0] == player_id and "Own Goal" not in e["text"]:
-                send_embed(player, info["league_name"], "GOAL  " + e["minute_text"], name + "\n" + score_text, [])
+                if not already_sent(sent, key_base + "_goal_" + e["minute_text"]):
+                    send_embed(player, info["league_name"], "GOAL  " + e["minute_text"], name + "\n" + score_text, [])
             if len(ids) > 1 and ids[1] == player_id:
-                send_embed(player, info["league_name"], "ASSIST  " + e["minute_text"], name + "\n" + score_text, [])
+                if not already_sent(sent, key_base + "_assist_" + e["minute_text"]):
+                    send_embed(player, info["league_name"], "ASSIST  " + e["minute_text"], name + "\n" + score_text, [])
 
         # 퇴장
         if "Red Card" in e["text"] and ids[0] == player_id:
-            send_embed(player, info["league_name"], "RED CARD  " + e["minute_text"], name, [])
+            if not already_sent(sent, key_base + "_red_" + e["minute_text"]):
+                send_embed(player, info["league_name"], "RED CARD  " + e["minute_text"], name, [])
 
 
 # ===== 3. 경기 후 리포트 =====
-def send_report(player_id, player, info, events):
+def send_report(key_base, player_id, player, info, events, sent):
+    if key_base + "_report" in sent:
+        return
+
     was_bench = (player["starter"] == False)
     played = player["starter"]
     in_minute = 0
@@ -97,6 +112,8 @@ def send_report(player_id, player, info, events):
             timeline.append(e["minute_text"] + " 퇴장")
             out_minute = e["minute"]
 
+    sent.append(key_base + "_report")   # 미출전이어도 다시 확인하지 않게 기록
+
     if played == False:
         print(player["name"], "- 미출전, 리포트 없음")
         return
@@ -118,24 +135,3 @@ def send_report(player_id, player, info, events):
     ]
     description = "**" + player["name"] + "**\n" + info["final_score"]
     send_embed(player, info["league_name"], "FULL TIME", description, fields)
-
-
-# ===== 직접 실행했을 때만: players.json의 모든 선수로 테스트 =====
-if __name__ == "__main__":
-    with open("players.json", "r", encoding="utf-8") as f:
-        players = json.load(f)
-
-    data = espn.get_summary("eng.1", 704401, use_file=True)
-    events = espn.get_events(data)
-
-    for p in players:
-        player = espn.find_player(data, p["espn_id"])
-        if player is None:
-            print(p["name"], "- 이 경기 명단에 없음")
-            continue
-
-        info = espn.get_match_info(data, player["team_id"])
-        print("=====", p["name"], "=====")
-        send_lineup(player, info)
-        send_events(p["espn_id"], player, info, events)
-        send_report(p["espn_id"], player, info, events)
