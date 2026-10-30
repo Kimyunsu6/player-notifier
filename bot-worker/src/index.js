@@ -41,7 +41,38 @@ export default {
       return await handleCommand(interaction, env);
     }
 
-    return new Response("unknown type", { status: 400 });
+        return new Response("unknown type", { status: 400 });
+  },
+
+  // ===== 10분마다: GitHub Actions 알림 작업 실행 =====
+  async scheduled(event, env, ctx) {
+    const repo = "Kimyunsu6/player-notifier";
+    const headers = {
+      "Authorization": "Bearer " + env.GITHUB_TOKEN,
+      "Accept": "application/vnd.github+json",
+      "User-Agent": "football-alarm-worker"
+    };
+
+    // 1. 이미 실행 중이거나 대기 중이면 건너뛰기
+    const listUrl = "https://api.github.com/repos/" + repo + "/actions/workflows/notify.yml/runs?per_page=5";
+    const res = await fetch(listUrl, { headers: headers });
+    const data = await res.json();
+
+    for (const run of data.workflow_runs || []) {
+      if (run.status === "in_progress" || run.status === "queued" || run.status === "pending" || run.status === "waiting") {
+        console.log("이미 실행 중 - 건너뜀");
+        return;
+      }
+    }
+
+    // 2. 알림 작업 실행 요청 (Run workflow 버튼과 같음)
+    const dispatchUrl = "https://api.github.com/repos/" + repo + "/actions/workflows/notify.yml/dispatches";
+    const r = await fetch(dispatchUrl, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({ ref: "main" })
+    });
+    console.log("실행 요청 응답:", r.status);   // 204면 성공
   }
 };
 

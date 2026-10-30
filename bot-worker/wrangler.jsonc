@@ -16,7 +16,10 @@
 			"binding": "SETTINGS",
 			"id": "944582662ec14b72b08171701b778e33"
 		}
-	]
+	],
+	"triggers": {
+		"crons": ["*/10 8-21 * * *"]
+	}
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
