@@ -12,6 +12,39 @@ commands = [
         "name": "핑",
         "description": "봇이 살아있는지 확인",
         "type": 1
+    },
+    {
+        "name": "선수추가",
+        "description": "알림 받을 선수 추가",
+        "type": 1,
+        "options": [
+            {
+                "type": 3,
+                "name": "선수",
+                "description": "선수 이름 (영어 2글자 이상 입력)",
+                "required": True,
+                "autocomplete": True
+            }
+        ]
+    },
+    {
+        "name": "선수삭제",
+        "description": "알림 받던 선수 삭제",
+        "type": 1,
+        "options": [
+            {
+                "type": 3,
+                "name": "선수",
+                "description": "삭제할 선수",
+                "required": True,
+                "autocomplete": True
+            }
+        ]
+    },
+    {
+        "name": "내선수",
+        "description": "내가 등록한 선수와 알림 옵션 보기",
+        "type": 1
     }
 ]
 
