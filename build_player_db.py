@@ -41,3 +41,17 @@ with open("player_db.json", "w", encoding="utf-8") as f:
 
 print()
 print("완료: 선수", len(players), "명 저장")
+
+
+# KV에도 바로 올리기 (Cloudflare 설정이 있을 때만)
+import os
+import kv
+from datetime import datetime, timezone
+
+if os.getenv("CLOUDFLARE_API_TOKEN"):
+    code = kv.put_json("player_db", players)
+    print("KV 업로드 응답 코드:", code)
+
+    # 마지막 갱신 기록 파일 (60일 규칙 대비용 커밋 재료)
+    with open("last_update.txt", "w", encoding="utf-8") as f:
+        f.write("선수 사전 갱신: " + datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC") + " / " + str(len(players)) + "명\n")
