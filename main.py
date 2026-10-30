@@ -72,16 +72,26 @@ def load_test_watch_list():
     return players
 
 
-def load_sent():
-    if os.path.exists("sent.json"):
-        with open("sent.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
+def load_sent(test_mode):
+    if test_mode:
+        if os.path.exists("sent.json"):
+            with open("sent.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        return []
+
+    data = kv.get_json("sent")
+    if data is None:
+        return []
+    return data
 
 
-def save_sent(sent):
-    with open("sent.json", "w", encoding="utf-8") as f:
-        json.dump(sent, f, ensure_ascii=False, indent=2)
+def save_sent(sent, test_mode):
+    recent = sent[-1000:]
+    if test_mode:
+        with open("sent.json", "w", encoding="utf-8") as f:
+            json.dump(recent, f, ensure_ascii=False, indent=2)
+    else:
+        kv.put_json("sent", recent)
 
 
 # 킥오프까지 남은 시간 (분)
@@ -214,13 +224,16 @@ if __name__ == "__main__":
         date = datetime.now(timezone.utc).strftime("%Y%m%d")
 
     print("감시 선수:", len(players), "명")
-    sent = load_sent()
+    sent = load_sent(TEST_MODE)
+    saved_count = len(sent)
     start_time = time.time()
 
     while True:
         print("===== 확인", datetime.now().strftime("%H:%M:%S"), "=====")
         result = run_once(players, sent, date, TEST_MODE)
-        save_sent(sent)
+        if len(sent) != saved_count:
+            save_sent(sent, TEST_MODE)
+            saved_count = len(sent)
 
         if result == "none":
             print("지켜볼 경기 없음 - 종료")

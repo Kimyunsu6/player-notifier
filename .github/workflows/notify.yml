@@ -1,0 +1,38 @@
+name: 출전 알림
+
+on:
+  schedule:
+    # 한국 17:00 ~ 06:45 = UTC 08:00 ~ 21:45, 15분마다
+    - cron: "*/15 8-21 * * *"
+  workflow_dispatch:      # GitHub 화면에서 직접 실행하는 버튼
+
+# 한 번에 하나만 실행 (경기 감시 중이면 다음 실행은 기다림)
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: 코드 가져오기
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 라이브러리 설치
+        run: pip install requests python-dotenv
+
+      - name: 알림 실행
+        run: python -u main.py
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_KV_ID: ${{ secrets.CLOUDFLARE_KV_ID }}
