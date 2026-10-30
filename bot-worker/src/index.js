@@ -168,6 +168,52 @@ async function handleCommand(interaction, env) {
     return reply(text);
   }
 
+  if (commandName === "알림설정") {
+    const user = await getUser(env, userId);
+
+    // 고른 옵션만 바꾸기 (안 고르면 null)
+    const lineup = getOption(interaction, "선발벤치");
+    const goals = getOption(interaction, "골어시");
+    const result = getOption(interaction, "결과");
+
+    if (lineup !== null) {
+      user.options.lineup = (lineup === "on");
+    }
+    if (goals !== null) {
+      user.options.goals = (goals === "on");
+    }
+    if (result !== null) {
+      user.options.result = (result === "on");
+    }
+
+    // 하나라도 바꿨으면 저장
+    if (lineup !== null || goals !== null || result !== null) {
+      user.guild_id = interaction.guild_id;
+      await saveUser(env, userId, user);
+    }
+
+    const o = user.options;
+    let text = "**내 알림 옵션**\n";
+    text = text + "선발/벤치: " + onOff(o.lineup) + "\n";
+    text = text + "골/어시: " + onOff(o.goals) + "\n";
+    text = text + "결과: " + onOff(o.result);
+
+    if (!o.lineup && !o.goals && !o.result) {
+      text = text + "\n\n모든 알림이 꺼져 있어서 알림이 오지 않아요.";
+    }
+    return reply(text);
+  }
+
+  if (commandName === "알림채널") {
+    const guildId = interaction.guild_id;
+    if (!guildId) {
+      return reply("서버 채널에서만 쓸 수 있어요.");
+    }
+
+    await env.SETTINGS.put("guild:" + guildId, JSON.stringify({ channel_id: interaction.channel_id }));
+    return reply("이 채널(<#" + interaction.channel_id + ">)을 알림 채널로 지정했어요.");
+  }
+
   return reply("모르는 명령어예요.");
 }
 
