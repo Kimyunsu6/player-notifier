@@ -9,8 +9,30 @@ def already_sent(sent, key):
     return False
 
 
+# 구독자 중 option을 켠 사람만 골라서, 채널별로 멘션해서 보내기
+# option: "lineup", "goals", "result"
+def send_to_subs(player, league_name, title, description, fields, subs, option):
+    channels = {}       # 채널ID -> [사용자ID, ...]
+    for s in subs:
+        if s["options"].get(option, False) == False:
+            continue
+        ch = s["channel_id"]
+        if ch is None:
+            continue
+        if ch not in channels:
+            channels[ch] = []
+        channels[ch].append(s["user_id"])
+
+    if len(channels) == 0:
+        print("  (아무도 이 알림을 켜지 않음:", title, ")")
+        return
+
+    for ch in channels:
+        send_embed(player, league_name, title, description, fields, channels[ch], ch)
+
+
 # ===== 1. 선발 / 벤치 알림 =====
-def send_lineup(key_base, player, info, sent):
+def send_lineup(key_base, player, info, subs, sent):
     if already_sent(sent, key_base + "_lineup"):
         return
 
@@ -27,11 +49,12 @@ def send_lineup(key_base, player, info, sent):
         {"name": "최근 5경기 (과거 → 최근)", "value": info["my_form"] + "\n" + info["opp_form"], "inline": False}
     ]
     description = "**" + player["name"] + "**\nvs " + info["opponent"]
-    send_embed(player, info["league_name"], title, description, fields)
+    send_to_subs(player, info["league_name"], title, description, fields, subs, "lineup")
 
 
-# ===== 2. 경기 중 이벤트 알림 =====
-def send_events(key_base, player_id, player, info, events, sent):
+# ===== 2. 경기 중 이벤트 모으기 (보내지는 않음 → main에서 시간순 정렬 후 보냄) =====
+def collect_events(key_base, player_id, player, info, events, subs):
+    result = []
     was_bench = (player["starter"] == False)
     my_score = 0
     opp_score = 0
@@ -52,30 +75,54 @@ def send_events(key_base, player_id, player, info, events, sent):
         # 교체 투입
         if e["type"] == "substitution" and was_bench:
             was_bench = False
-            if not already_sent(sent, key_base + "_sub_" + e["minute_text"]):
-                if ids[0] == player_id:
-                    other = e["names"][1]
-                else:
-                    other = e["names"][0]
-                send_embed(player, info["league_name"], "SUB ON  " + e["minute_text"], name + "\n" + other + " 대신 투입", [])
+            if ids[0] == player_id:
+                other = e["names"][1]
+            else:
+                other = e["names"][0]
+            result.append({
+                "key": key_base + "_sub_" + e["minute_text"],
+                "minute": e["minute"],
+                "title": "SUB ON  " + e["minute_text"],
+                "description": name + "\n" + other + " 대신 투입"
+            })
 
         # 골 / 도움
         if e["scoring"]:
             if ids[0] == player_id and "Own Goal" not in e["text"]:
-                if not already_sent(sent, key_base + "_goal_" + e["minute_text"]):
-                    send_embed(player, info["league_name"], "GOAL  " + e["minute_text"], name + "\n" + score_text, [])
+                result.append({
+                    "key": key_base + "_goal_" + e["minute_text"],
+                    "minute": e["minute"],
+                    "title": "GOAL  " + e["minute_text"],
+                    "description": name + "\n" + score_text
+                })
             if len(ids) > 1 and ids[1] == player_id:
-                if not already_sent(sent, key_base + "_assist_" + e["minute_text"]):
-                    send_embed(player, info["league_name"], "ASSIST  " + e["minute_text"], name + "\n" + score_text, [])
+                result.append({
+                    "key": key_base + "_assist_" + e["minute_text"],
+                    "minute": e["minute"],
+                    "title": "ASSIST  " + e["minute_text"],
+                    "description": name + "\n" + score_text
+                })
 
         # 퇴장
         if "Red Card" in e["text"] and ids[0] == player_id:
-            if not already_sent(sent, key_base + "_red_" + e["minute_text"]):
-                send_embed(player, info["league_name"], "RED CARD  " + e["minute_text"], name, [])
+            result.append({
+                "key": key_base + "_red_" + e["minute_text"],
+                "minute": e["minute"],
+                "title": "RED CARD  " + e["minute_text"],
+                "description": name
+            })
+
+    # 보낼 때 필요한 정보 같이 담기
+    for a in result:
+        a["player"] = player
+        a["league_name"] = info["league_name"]
+        a["subs"] = subs
+
+    return result
 
 
 # ===== 3. 경기 후 리포트 =====
-def send_report(key_base, player_id, player, info, events, sent):
+def send_report(key_base, player_id, player, info, events, subs, sent):
     if key_base + "_report" in sent:
         return
 
@@ -112,10 +159,10 @@ def send_report(key_base, player_id, player, info, events, sent):
             timeline.append(e["minute_text"] + " 퇴장")
             out_minute = e["minute"]
 
-    sent.append(key_base + "_report")   # 미출전이어도 다시 확인하지 않게 기록
+    sent.append(key_base + "_report")
 
     if played == False:
-        print(player["name"], "- 미출전, 리포트 없음")
+        print(" ", player["name"], "- 미출전, 리포트 없음")
         return
 
     if len(timeline) == 0:
@@ -134,4 +181,4 @@ def send_report(key_base, player_id, player, info, events, sent):
         {"name": "경기 흐름", "value": flow, "inline": False}
     ]
     description = "**" + player["name"] + "**\n" + info["final_score"]
-    send_embed(player, info["league_name"], "FULL TIME", description, fields)
+    send_to_subs(player, info["league_name"], "FULL TIME", description, fields, subs, "result")
