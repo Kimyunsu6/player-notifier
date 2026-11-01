@@ -133,6 +133,10 @@ def get_match_info(data, team_id):
     else:
         home_away = "원정"
 
+        # 대회 이름: 경기 정보에 있는 대회 이름을 먼저, 없으면 팀 소속 리그
+    league_name = data["header"].get("league", {}).get("name", "")
+    if league_name == "":
+        league_name = my["team"].get("groups", {}).get("name", "")
     return {
         "opponent": opp["team"]["displayName"],
         "my_abbr": my_abbr,
@@ -144,7 +148,7 @@ def get_match_info(data, team_id):
         "my_form": my_abbr + "  " + last_five(data, team_id),
         "opp_form": opp_abbr + "  " + last_five(data, opp["team"]["id"]),
         "rank_text": my_abbr + " " + get_rank(data, team_id) + "  ·  " + opp_abbr + " " + get_rank(data, opp["team"]["id"]),
-        "league_name": my["team"].get("groups", {}).get("name", ""),
+        "league_name": league_name,
         "final_score": home["team"]["displayName"] + " " + home.get("score", "0") + "-" + away.get("score", "0") + " " + away["team"]["displayName"]
     }
 

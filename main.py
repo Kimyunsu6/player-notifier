@@ -11,6 +11,13 @@ WAIT_INTERVAL = 300      # 명단 기다릴 때 간격 (초)
 LINEUP_MINUTES = 60      # 킥오프 몇 분 전부터 확인할지
 MAX_RUN_MINUTES = 240    # 한 번 실행에서 최대 몇 분까지 돌지
 
+# 찾아볼 대회 목록 (리그 + 유럽대회 + 국내 컵)
+COMPETITIONS = [
+    "eng.1", "esp.1", "ita.1", "ger.1",
+    "uefa.champions", "uefa.europa", "uefa.europa.conf",
+    "eng.league_cup", "eng.fa", "esp.copa_del_rey", "ita.coppa_italia", "ger.dfb_pokal"
+]
+
 
 # KV의 사용자 설정 + 선수 사전으로 감시 목록 만들기
 def load_watch_list():
@@ -102,12 +109,8 @@ def minutes_until(date_text, now):
 
 
 # 오늘 내 선수들이 뛰는 경기 찾기
-def find_matches(players, date):
-    leagues = []
-    for p in players:
-        if p["league"] not in leagues:
-            leagues.append(p["league"])
-
+# 오늘 내 선수 팀이 나오는 경기 찾기 (leagues: 찾아볼 대회 목록)
+def find_matches(players, date, leagues):
     matches = []
     for league in leagues:
         board = espn.get_scoreboard(league, date)
@@ -117,9 +120,10 @@ def find_matches(players, date):
             for c in event["competitions"][0]["competitors"]:
                 team_ids.append(c["team"]["id"])
 
+            # 대회 상관없이, 팀만 맞으면 내 선수 경기
             my_players = []
             for p in players:
-                if p["league"] == league and p["team_id"] in team_ids:
+                if p["team_id"] in team_ids:
                     my_players.append(p)
 
             if len(my_players) > 0:
@@ -133,6 +137,15 @@ def find_matches(players, date):
                 })
 
     return matches
+
+
+# 오늘 내 선수 경기가 있는 대회만 골라내기 (실행 시작할 때 한 번만)
+def find_today_leagues(players, date):
+    result = []
+    for league in COMPETITIONS:
+        if len(find_matches(players, date, [league])) > 0:
+            result.append(league)
+    return result
 
 
 def all_reports_sent(match, sent):
@@ -188,9 +201,9 @@ def check_match(match, sent, use_file):
 
 
 # 한 바퀴 확인: "live"(빠르게), "wait"(천천히), "none"(종료)
-def run_once(players, sent, date, use_file):
+def run_once(players, sent, date, use_file, leagues):
     now = datetime.now(timezone.utc)
-    matches = find_matches(players, date)
+    matches = find_matches(players, date, leagues)
     result = "none"
 
     for m in matches:
@@ -227,10 +240,12 @@ if __name__ == "__main__":
     sent = load_sent(TEST_MODE)
     saved_count = len(sent)
     start_time = time.time()
+    leagues = find_today_leagues(players, date)
+    print("오늘 경기 있는 대회:", leagues)
 
     while True:
         print("===== 확인", datetime.now().strftime("%H:%M:%S"), "=====")
-        result = run_once(players, sent, date, TEST_MODE)
+        result = run_once(players, sent, date, TEST_MODE, leagues)
         if len(sent) != saved_count:
             save_sent(sent, TEST_MODE)
             saved_count = len(sent)
