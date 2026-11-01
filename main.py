@@ -10,6 +10,7 @@ LIVE_INTERVAL = 30       # 경기 중 간격 (초)
 WAIT_INTERVAL = 300      # 명단 기다릴 때 간격 (초)
 LINEUP_MINUTES = 60      # 킥오프 몇 분 전부터 확인할지
 MAX_RUN_MINUTES = 240    # 한 번 실행에서 최대 몇 분까지 돌지
+RELOAD_INTERVAL = 300    # 선수 목록 다시 읽는 간격 (초)
 
 # 찾아볼 대회 목록 (리그 + 유럽대회 + 국내 컵)
 COMPETITIONS = [
@@ -19,13 +20,16 @@ COMPETITIONS = [
 ]
 
 
-# KV의 사용자 설정 + 선수 사전으로 감시 목록 만들기
-def load_watch_list():
-    # 선수 사전을 "ID -> 선수 정보" 딕셔너리로
+# 선수 사전을 "ID -> 선수 정보" 딕셔너리로 (실행 시작할 때 한 번만)
+def load_player_db():
     db = {}
     for p in kv.get_json("player_db") or []:
         db[p["id"]] = p
+    return db
 
+
+# KV의 사용자 설정 + 선수 사전으로 감시 목록 만들기
+def load_watch_list(db):
     guild_channels = {}     # 서버ID -> 알림 채널ID
     watch = {}              # 선수ID -> 감시 정보
 
@@ -77,6 +81,15 @@ def load_test_watch_list():
     for p in players:
         p["subs"] = [sub]
     return players
+
+
+# 감시 선수 ID만 뽑아서 정렬 (목록이 바뀌었는지 비교용)
+def get_player_ids(players):
+    ids = []
+    for p in players:
+        ids.append(p["espn_id"])
+    ids.sort()
+    return ids
 
 
 def load_sent(test_mode):
@@ -233,7 +246,8 @@ if __name__ == "__main__":
         players = load_test_watch_list()
         date = "20241201"
     else:
-        players = load_watch_list()
+        db = load_player_db()
+        players = load_watch_list(db)
         date = datetime.now(timezone.utc).strftime("%Y%m%d")
 
     print("감시 선수:", len(players), "명")
@@ -242,8 +256,26 @@ if __name__ == "__main__":
     start_time = time.time()
     leagues = find_today_leagues(players, date)
     print("오늘 경기 있는 대회:", leagues)
+    last_reload = time.time()
 
     while True:
+        # 5분마다 선수 목록 다시 읽기 (실행 중에 추가·삭제·옵션 변경 반영)
+        if not TEST_MODE and time.time() - last_reload >= RELOAD_INTERVAL:
+            last_reload = time.time()
+            try:
+                new_players = load_watch_list(db)
+            except Exception as e:
+                print("선수 목록 다시 읽기 실패:", e)
+                new_players = []
+
+            # 0명이면 KV 오류일 수 있으니 예전 목록 유지
+            if len(new_players) > 0:
+                if get_player_ids(new_players) != get_player_ids(players):
+                    print("선수 목록 바뀜:", len(players), "명 ->", len(new_players), "명")
+                    leagues = find_today_leagues(new_players, date)
+                    print("오늘 경기 있는 대회:", leagues)
+                players = new_players
+
         print("===== 확인", datetime.now().strftime("%H:%M:%S"), "=====")
         result = run_once(players, sent, date, TEST_MODE, leagues)
         if len(sent) != saved_count:
